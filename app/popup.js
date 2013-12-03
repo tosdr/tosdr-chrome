@@ -1,3 +1,5 @@
+"use strict";
+
 jQuery(function () {
 
     function renderDataPoint(service, dataPointId) {
@@ -72,7 +74,15 @@ jQuery(function () {
         for (var i = 0; i < points.length; i++) {
             pointsHtml += '<li id="popup-point-' + name + '-' + points[i] + '" class="point"></li>';
         }
-        var bodyHtml = '<div class="modal-body">' + classHtml + '<section class="specificissues"> <ul class="tosdr-points">' + pointsHtml + '</ul></section>';
+
+      var votingHtml = '<h2>Vote!</h2>' +
+        '<p>Vote to express your like/dislike for these terms of service</p>' +
+        '<ul class="thumbnails">' +
+        '<li class="like"><a id="vote-up" class="thumbnail">Like<i class="icon-thumbs-up"></i></a><span id="upvote-count" class="badge badge-success">0</span></li>' +
+        '<li class="like"><a id="vote-down" class="thumbnail">Dislike<i class="icon-thumbs-down"></i></a><span id="downvote-count" class="badge badge-important">0</span></li>' +
+        '</ul>';
+
+      var bodyHtml = '<div class="modal-body">' + classHtml + votingHtml + '<section class="specificissues"> <ul class="tosdr-points">' + pointsHtml + '</ul></section>';
 
         // Add Links
         if (isEmpty(links)) {
@@ -97,6 +107,128 @@ jQuery(function () {
     renderPopup(serviceName);
 
     $('#closeButton,.close').click(function () {
-        window.close();
+      chrome.extension.getBackgroundPage().console.log('foo');
+      console.log('foo');
+      window.close();
     });
+
+  Firebase.enableLogging(true);
+  var u = new Firebase('https://tlosdr.firebaseio.com/' + serviceName + '/upvotes');
+  var d = new Firebase('https://tlosdr.firebaseio.com/' + serviceName + '/downvotes');
+
+  var vote = function (fb, id, voteDirection) {
+    fb.transaction(function(curr) {
+      if (isNaN(parseFloat(curr)))
+        return 1; // initialize to 1.
+      else {
+
+        if (voteDirection == 'up')
+          return curr + 1; // increment.
+        else
+          return curr - 1;
+      }
+    }, function(error, committed, s) {
+      // Once the transaction has completed, update the UI (and watch for updates).
+        $(id).html(s.val());
+    });
+  };
+
+  var voteUI = function(id, clear) {
+    if (!clear) {
+      $(id).addClass('liked');
+      $(id).find("i").addClass('icon-white');
+    }
+    else {
+      $(id).removeClass('liked');
+      $(id).find("i").removeClass('icon-white');
+    }
+  };
+
+  var toType = function(obj) {
+    return ({}).toString.call(obj).match(/\s([a-zA-Z]+)/)[1].toLowerCase();
+  };
+
+  var voted = function(voteDirection) {
+    if(!voteDirection) {
+      var upvoted = JSON.parse(localStorage.getItem('upvoted/' + serviceName));
+      var downvoted = JSON.parse(localStorage.getItem('downvoted/' + serviceName));
+      return upvoted || downvoted;
+    }
+
+    else {
+      return JSON.parse(localStorage.getItem(voteDirection + '/' + serviceName));
+    }
+  };
+
+  var setVotes = function (fb, id) {
+    if (voted()) {
+      if (voted('upvoted'))
+        voteUI('#vote-up', false);
+      else
+        voteUI('#vote-down', false);
+    };
+
+    fb.on('value', function(s) {
+      if(s.val() === null) {
+      } else {
+        $(id).html(s.val());
+      }
+    });
+
+  };
+
+  // Initialize values
+  setVotes(u, '#upvote-count');
+  setVotes(d, '#downvote-count');
+
+  var handleUpVote = function (fb, countID, voteID, action) {
+    if (!voted()) {
+      vote(fb, countID, 'up');
+      voteUI(countID, false);
+      localStorage.setItem(action + '/' + serviceName, true);
+    }
+    else {
+      if (voted('upvoted')) {
+        vote(fb, countID, 'down');
+        voteUI(voteID, true);
+        localStorage.setItem(action + '/' + serviceName, false);
+      }
+      // Pressed upvote after a downvote
+      else {
+        // // Reverse upvote
+        // vote(fb, countID, 'down');
+        // voteUI(voteID, true);
+        // localStorage.setItem(action + '/' + serviceName, false);
+
+        // // Do downvote
+        // vote(d, '#downvote-count', 'up');
+        // voteUI('#downvote-count', false);
+        // localStorage.setItem('downvoted' + '/' + serviceName, true);
+      }
+    }
+  };
+
+  var handleDownVote = function (fb, countID, voteID, action) {
+    if (!voted()) {
+      vote(fb, countID, 'up');
+      voteUI(countID, false);
+      localStorage.setItem(action + '/' + serviceName, true);
+    }
+    else {
+      if (voted('downvoted')) {
+        vote(fb, countID, 'down');
+        voteUI(voteID, true);
+        localStorage.setItem(action + '/' + serviceName, false);
+      }
+    }
+  };
+
+  $('#vote-up').click(function () {
+    handleUpVote(u, '#upvote-count', '#vote-up', 'upvoted');
+  });
+
+  $('#vote-down').click(function () {
+    handleDownVote(d, '#downvote-count', '#vote-down', 'downvoted');
+  });
+
 });
