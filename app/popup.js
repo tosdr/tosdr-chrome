@@ -134,6 +134,9 @@ jQuery(function () {
   };
 
   var voteUI = function(id, clear) {
+
+    if(typeof(clear)==='undefined') clear = false;
+
     if (!clear) {
       $(id).addClass('liked');
       $(id).find("i").addClass('icon-white');
@@ -163,9 +166,9 @@ jQuery(function () {
   var setVotes = function (fb, id) {
     if (voted()) {
       if (voted('upvoted'))
-        voteUI('#vote-up', false);
+        voteUI('#vote-up');
       else
-        voteUI('#vote-down', false);
+        voteUI('#vote-down');
     };
 
     fb.on('value', function(s) {
@@ -184,10 +187,11 @@ jQuery(function () {
   var handleUpVote = function (fb, countID, voteID, action) {
     if (!voted()) {
       vote(fb, countID, 'up');
-      voteUI(countID, false);
+      voteUI('#vote-up');
       localStorage.setItem(action + '/' + serviceName, true);
     }
     else {
+      // Pressed upvote again, reverse upvote
       if (voted('upvoted')) {
         vote(fb, countID, 'down');
         voteUI(voteID, true);
@@ -195,15 +199,15 @@ jQuery(function () {
       }
       // Pressed upvote after a downvote
       else {
-        // // Reverse upvote
-        // vote(fb, countID, 'down');
-        // voteUI(voteID, true);
-        // localStorage.setItem(action + '/' + serviceName, false);
+        // // Do upvote
+        vote(fb, countID, 'up');
+        voteUI('#vote-up');
+        localStorage.setItem('upvoted/' + serviceName, true);
 
-        // // Do downvote
-        // vote(d, '#downvote-count', 'up');
-        // voteUI('#downvote-count', false);
-        // localStorage.setItem('downvoted' + '/' + serviceName, true);
+        // Reverse downvote
+        vote(d, '#downvote-count', 'down');
+        voteUI('#vote-down', true);
+        localStorage.setItem('downvoted/' + serviceName, false);
       }
     }
   };
@@ -211,14 +215,27 @@ jQuery(function () {
   var handleDownVote = function (fb, countID, voteID, action) {
     if (!voted()) {
       vote(fb, countID, 'up');
-      voteUI(countID, false);
+      voteUI('#vote-down');
       localStorage.setItem(action + '/' + serviceName, true);
     }
     else {
+      // Pressed downvote again, reverse downvote
       if (voted('downvoted')) {
         vote(fb, countID, 'down');
         voteUI(voteID, true);
         localStorage.setItem(action + '/' + serviceName, false);
+      }
+      // Pressed downvote after a upvote
+      else {
+        // // Do downvote
+        vote(fb, countID, 'up');
+        voteUI('#vote-down');
+        localStorage.setItem('downvoted/' + serviceName, true);
+
+        // Reverse upvote
+        vote(d, '#upvote-count', 'down');
+        voteUI('#vote-up', true);
+        localStorage.setItem('upvoted/' + serviceName, false);
       }
     }
   };
